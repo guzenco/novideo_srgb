@@ -99,6 +99,7 @@
       <DependentUpon>AboutWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="DisplayConfigManager.cs" />
+    <Compile Include="DisplayManager.cs" />
     <Compile Include="LstarEOTF.cs" />
     <Compile Include="Lut16.cs" />
     <Compile Include="DoubleToneCurve.cs" />
@@ -106,6 +107,7 @@
     <Compile Include="GammaToneCurve.cs" />
     <Compile Include="ICCBinaryReader.cs" />
     <Compile Include="ICCProfileException.cs" />
+    <Compile Include="RegCSC.cs" />
     <Compile Include="SrgbEOTF.cs" />
     <Compile Include="ToneCurve.cs" />
     <Page Include="AboutWindow.xaml" />

@@ -68,7 +68,16 @@ namespace novideo_srgb
             };
 
             _dither = Novideo.GetDitherControl(_output);
-            _clamped = Novideo.IsColorSpaceConversionActive(_output);
+            _clamped = false;
+            
+            try
+            {
+                _clamped = !HdrActive && Novideo.IsColorSpaceConversionActive(_output);
+            }
+            catch (Exception e)
+            {
+                HandleClampException(e);
+            }
 
             ProfilePath = "";
             CustomGamma = 2.2;
@@ -99,14 +108,13 @@ namespace novideo_srgb
 
         private void UpdateClamp(bool doClamp)
         {
-            if (_clamped)
+            if (_clamped && !doClamp)
             {
                 Novideo.DisableColorSpaceConversion(_output);
             }
 
             if (!doClamp) return;
 
-            if (_clamped) Thread.Sleep(100);
             if (UseEdid)
                 Novideo.SetColorSpaceConversion(_output, Colorimetry.RGBToRGB(TargetColorSpace, EdidColorSpace));
             else if (UseIcc)
@@ -156,7 +164,7 @@ namespace novideo_srgb
         private void HandleClampException(Exception e)
         {
             MessageBox.Show(e.Message);
-            _clamped = Novideo.IsColorSpaceConversionActive(_output);
+            _clamped = false;
             ClampSdr = _clamped;
             _viewModel.SaveConfig();
             OnPropertyChanged(nameof(Clamped));
@@ -182,6 +190,18 @@ namespace novideo_srgb
                 OnPropertyChanged();
             }
             get => _clamped;
+        }
+
+        public void DeapplyClamp()
+        {
+            try
+            {
+                UpdateClamp(false);
+            }
+            catch (Exception e)
+            {
+                HandleClampException(e);
+            }
         }
 
         public void ReapplyClamp()

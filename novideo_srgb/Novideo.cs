@@ -2,6 +2,8 @@
 using System.Linq;
 using System.Runtime.InteropServices;
 using EDIDParser;
+using EDIDParser.Descriptors;
+using EDIDParser.Enums;
 using Microsoft.Win32;
 using NvAPIWrapper.Display;
 using NvAPIWrapper.GPU;
@@ -108,7 +110,7 @@ namespace novideo_srgb
             var displayId = output.PhysicalGPU.GetDisplayDeviceByOutput(output).DisplayId;
 
             var csc = new Csc { version = 0x1007C };
-            var status = NvAPI_GPU_GetColorSpaceConversion(displayId, ref csc);
+            var status = GetColorSpaceConversionU(displayId, ref csc);
             if (status != 0)
             {
                 throw new Exception("NvAPI_GPU_GetColorSpaceConversion failed with error code " + status);
@@ -175,7 +177,7 @@ namespace novideo_srgb
                 }
             }
 
-            var status = NvAPI_GPU_SetColorSpaceConversion(displayId, ref csc);
+            var status = SetColorSpaceConversionU(displayId, ref csc);
             if (status != 0)
             {
                 throw new Exception("NvAPI_GPU_SetColorSpaceConversion failed with error code " + status);
@@ -273,7 +275,7 @@ namespace novideo_srgb
                     }
                 }
 
-                var status = NvAPI_GPU_SetColorSpaceConversion(displayId, ref csc);
+                var status = SetColorSpaceConversionU(displayId, ref csc);
                 if (status != 0)
                 {
                     throw new Exception("NvAPI_GPU_SetColorSpaceConversion failed with error code " + status);
@@ -370,6 +372,132 @@ namespace novideo_srgb
             NvAPI_GPU_SetDitherControl =
                 Marshal.GetDelegateForFunctionPointer<NvAPI_GPU_SetDitherControl_t>(
                     NvAPI_QueryInterface(_NvAPI_GPU_SetDitherControl));
+        }
+
+        private static string GetNvRegDisplayName(uint displayId)
+        {
+            Display display = Display.GetDisplays().First((d) => d.DisplayDevice.DisplayId == displayId);
+            var displays = WindowsDisplayAPI.Display.GetDisplays();
+            var path = displays.First(x => x.DisplayName == display.Name).DevicePath;
+            var edid = Novideo.GetEDID(path, display);
+            var serialNumber = edid.Descriptors.OfType<StringDescriptor>()
+                .FirstOrDefault(x => x.Type == StringDescriptorType.MonitorSerialNumber)?.Value ?? "";
+            if(serialNumber.Length == 0)
+            {
+                serialNumber = edid.SerialNumber.ToString();
+            }
+            var disp = path.Split('#')[1];
+            return disp + serialNumber;
+        }
+
+        private static int SetColorSpaceConversionU(uint displayId, ref Csc csc)
+        {
+            var status = NvAPI_GPU_SetColorSpaceConversion(displayId, ref csc);
+            if (status != 0)
+            {
+                var nvRegDisplayName = GetNvRegDisplayName(displayId);
+
+                var regCsc = CscToRegCsc(csc);
+                RegCSC.SetRegCsc(nvRegDisplayName, regCsc);
+                return 0;
+            }
+            return status;
+        }
+
+        private static int GetColorSpaceConversionU(uint displayId, ref Csc csc)
+        {
+            var status = NvAPI_GPU_GetColorSpaceConversion(displayId, ref csc);
+            if (status != 0)
+            {
+                var nvRegDisplayName = GetNvRegDisplayName(displayId);
+
+                var regCsc = RegCSC.GetRegCsc(nvRegDisplayName);
+                csc = RegCscToCsc(regCsc);
+                return 0;
+            }
+            return status;
+        }
+
+        private static unsafe float[] PtrToArray(float* ptr, int length)
+        {
+            if (ptr == null) return null;
+
+            var arr = new float[length];
+            for (int i = 0; i < length; i++)
+            {
+                arr[i] = ptr[i];
+            }
+            return arr;
+        }
+
+
+        private static RegCSC.RegCsc CscToRegCsc(Csc csc)
+        {
+            unsafe
+            {
+                var regCsc = new RegCSC.RegCsc(
+                    csc.contentColorSpace,
+                    csc.monitorColorSpace,
+                    csc.useMatrix1 == 1 ? PtrToArray(csc.matrix1, 12) : null,
+                    csc.useMatrix2 == 1 ? PtrToArray(csc.matrix2, 12) : null,
+                    csc.version == 0x200A0 ? PtrToArray(csc.degamma, 1024 * 3) : null,
+                    csc.version == 0x200A0 ? PtrToArray(csc.regamma, 1024 * 3) : null
+                );
+                return regCsc;
+            }
+        }
+
+        private static unsafe Csc RegCscToCsc(RegCSC.RegCsc regCsc)
+        {
+            var csc = new Csc
+            {
+                version = (uint)(regCsc.hasLut() ? 0x200A0 : 0x1007C),
+                contentColorSpace = regCsc.Config.contentColorSpace,
+                monitorColorSpace = regCsc.Config.monitorColorSpace,
+                useMatrix1 = (uint)(regCsc.hasMatrix1() ? 1 : 0),
+                useMatrix2 = (uint)(regCsc.hasMatrix2() ? 1 : 0),
+            };
+
+            if (regCsc.hasMatrix1())
+            {
+                for (int i = 0; i < 12; i++)
+                {
+                    csc.matrix1[i] = regCsc.Config.matrix1[i];
+                }
+            }
+
+            if (regCsc.hasMatrix2())
+            {
+                for (int i = 0; i < 12; i++)
+                {
+                    csc.matrix2[i] = regCsc.Config.matrix2[i];
+                }
+            }
+
+            if (regCsc.hasLut())
+            {
+                csc.bufferSize = 0x6000;
+                float[] gamma = new float[1024 * 3 * 2];
+                fixed (float* buffer = gamma)
+                {
+                    csc.buffer = buffer;
+                    csc.degamma = buffer;
+                    csc.regamma = buffer + 0x3000 / sizeof(float);
+
+                    for (int i = 0; i < regCsc.Lut.degamma.Length; i++)
+                    {
+                        csc.degamma[i] = regCsc.Lut.degamma[i];
+                    }
+
+
+                    for (int i = 0; i < regCsc.Lut.regamma.Length; i++)
+                    {
+                        csc.regamma[i] = regCsc.Lut.regamma[i];
+                    }
+
+                }
+            }
+            return csc;
         }
     }
 }

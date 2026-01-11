@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using Microsoft.Win32;
@@ -106,6 +107,14 @@ namespace novideo_srgb
                 Monitors.Add(monitor);
             }
 
+            if (!DisplayManager.UsedFlag)
+            {
+                foreach (var monitor in Monitors)
+                {
+                    monitor.DeapplyClamp();
+                }
+            }
+            Thread.Sleep(DisplayManager.IsRefreshPending() ? 5000 : 100);
             foreach (var monitor in Monitors)
             {
                 monitor.ReapplyClamp();
