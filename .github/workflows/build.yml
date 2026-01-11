@@ -1,0 +1,35 @@
+name: Build .NET Framework
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.3.1
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v1.2.0
+
+      - name: Restore NuGet packages
+        run: nuget restore novideo_srgb.sln
+
+      - name: Build solution
+        run: msbuild novideo_srgb.sln /p:Configuration=Release
+
+      - name: Create ZIP package
+        run: |
+          mkdir output
+          powershell Compress-Archive -Path "novideo_srgb\bin\x64\Release\*" -DestinationPath "output\release.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package
+          path: output/release.zip
