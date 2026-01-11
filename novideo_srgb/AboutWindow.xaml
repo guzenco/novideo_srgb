@@ -11,12 +11,13 @@
         SnapsToDevicePixels="True">
     <StackPanel Margin="6">
         <TextBlock FontSize="15" HorizontalAlignment="Center" TextAlignment="Center">
-            novideo_srgb v4.2 by ledoge
+            novideo_srgb by ledoge<LineBreak />
+            fork v5.0 by guzenco
         </TextBlock>
         <TextBlock HorizontalAlignment="Center" TextAlignment="Center">
             Licensed under GPLv3 <LineBreak /> <LineBreak />
             Source code and releases hosted at <LineBreak />
-            <Hyperlink RequestNavigate="OnRequestNavigate" NavigateUri="https://github.com/ledoge/novideo_srgb">https://github.com/ledoge/novideo_srgb</Hyperlink>
+            <Hyperlink RequestNavigate="OnRequestNavigate" NavigateUri="https://github.com/guzenco/novideo_srgb">https://github.com/guzenco/novideo_srgb</Hyperlink>
         </TextBlock>
     </StackPanel>
 </Window>
