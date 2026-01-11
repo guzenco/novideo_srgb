@@ -23,13 +23,18 @@ jobs:
       - name: Build solution
         run: msbuild novideo_srgb.sln /p:Configuration=Release
 
-      - name: Create ZIP package
+      - name: Prepare output folder
         run: |
           mkdir output
-          powershell Compress-Archive -Path "novideo_srgb\bin\x64\Release\*" -DestinationPath "output\release.zip"
+          copy novideo_srgb\bin\x64\Release\*.exe output\
+          copy novideo_srgb\bin\x64\Release\*.dll output\
+          copy unlock_registry\unlock_registry.bat output\
+          copy LICENSE output\
+          copy LICENSE-THIRD-PARTY output\
 
+      # Upload the output folder as artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-package
-          path: output/release.zip
+          name: build
+          path: output/
