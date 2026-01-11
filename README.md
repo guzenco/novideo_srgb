@@ -1,4 +1,8 @@
-## [Download latest release](https://github.com/ledoge/novideo_srgb/releases/latest/download/release.zip)
+## [Download latest release](https://github.com/guzenco/novideo_srgb/releases/latest/download/release.zip)
+# About fork
+This fork uses the registry to apply color space conversions in cases where the NVIDIA API doesn't work. It serves as a workaround for crashes with R590 drivers.
+
+You must run `unlock_registry.bat` for registry-based CSC to function.
 
 # About
 This tool uses an undocumented NVIDIA API, supported on Fermi and later, to convert colors before sending them to a wide gamut monitor to effectively clamp it to sRGB (alternatively: Display P3, Adobe RGB or BT.2020), based on the chromaticities provided in its EDID. AMD supports this as a hidden setting in their drivers, but NVIDIA doesn't because ???.
