@@ -219,7 +219,7 @@ namespace novideo_srgb
 
         public static RegCsc GetRegCsc(string NVRegIdentifier)
         {
-            RegCsc result = new RegCsc();
+            RegCsc result = new RegCsc(2, 0, null, null, null, null);
 
             string path = GetPath(NVRegIdentifier);
             if (path != null)
