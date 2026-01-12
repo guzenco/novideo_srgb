@@ -1,13 +1,10 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace novideo_srgb
 {
-    using System;
-    using System.Runtime.InteropServices;
-    using System.Threading;
-    using System.Threading.Tasks;
 
     public static class DisplayManager
     {
@@ -20,45 +17,114 @@ namespace novideo_srgb
         private const byte VK_B = 0x42;
         private const uint KEYEVENTF_KEYUP = 0x0002;
 
-        private static DateTime _lastRequest = DateTime.MinValue;
         private static readonly object _lock = new object();
-        private static Task _pendingTask;
 
-        public static bool UsedFlag = false;
+        public static bool RefreshEndFlag = true;
+        private static bool FirstRunFlag = true;
+        private static bool RefreshRequestedFlag = false;
+        private static bool AllowDisplayRefreshFlag = true;
+
+        public static event EventHandler RefreshEndEvent;
+        private static Timer _refreshTimeoutTimer;
+        private static Timer _refreshEndFlagLiftTimer;
 
         public static void RequestDisplayRefresh()
         {
-            UsedFlag = true;
             lock (_lock)
             {
-                if (_pendingTask != null && !_pendingTask.IsCompleted)
+                if (FirstRunFlag)
                 {
-                    Console.WriteLine("Refresh already scheduled, skipping duplicate.");
-                    return;
+                    FirstRunFlag = false;
+                    SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
                 }
-
-                _lastRequest = DateTime.Now;
-
-                _pendingTask = Task.Run(async () =>
+                if (AllowDisplayRefreshFlag)
                 {
-                    Console.WriteLine("Refresh scheduled, waiting 1 second...");
-                    await Task.Delay(500);
-
                     DisplayRefresh();
-                });
+                }
+                else
+                {
+                    RefreshRequestedFlag = true;
+                }
             }
         }
 
-        public static bool IsRefreshPending()
+        public static void AllowDisplayRefresh(bool value)
         {
             lock (_lock)
             {
-                return _pendingTask != null && !_pendingTask.IsCompleted;
+                AllowDisplayRefreshFlag = value;
+            }
+        }
+
+        public static void AllowDisplayRefreshOnce()
+        {
+            lock (_lock)
+            {
+                if (RefreshRequestedFlag)
+                {
+                    DisplayRefresh();
+
+                }
+                else
+                {
+                    SetRefreshEndFlag(false, 100);
+                }
+            }
+        }
+
+        private static void SetRefreshEndFlag(bool value, int timeout = 10000)
+        {
+            lock (_lock)
+            {             
+                if (value)
+                {
+                    _refreshEndFlagLiftTimer?.Dispose();
+                    _refreshEndFlagLiftTimer = new Timer(_ => {
+                        lock (_lock)
+                        {
+                            RefreshEndFlag = true;
+                        }
+                        }, null, timeout / 2, Timeout.Infinite);
+
+                    
+                    _refreshTimeoutTimer?.Dispose();
+                    RefreshEndEvent?.Invoke(null, EventArgs.Empty);
+                }
+                else
+                {
+                    _refreshEndFlagLiftTimer?.Dispose();
+                    RefreshEndFlag = false;
+                    _refreshTimeoutTimer?.Dispose();
+                    _refreshTimeoutTimer = new Timer(_ =>
+                    {
+                        lock (_lock)
+                        {
+                            if (!RefreshEndFlag)
+                            {
+                                SetRefreshEndFlag(true, timeout);   
+                            }
+                        }
+                    }, null, timeout, Timeout.Infinite);
+                }
+            }
+        }
+
+        public static void OnDisplaySettingsChanged(object sender, EventArgs e)
+        {
+            lock (_lock)
+            {
+                if (!RefreshEndFlag)
+                {
+                    SetRefreshEndFlag(true);
+                }
             }
         }
 
         private static void DisplayRefresh()
         {
+            RefreshRequestedFlag = false;
+            SetRefreshEndFlag(false); 
+
             keybd_event(VK_LWIN, 0, 0, UIntPtr.Zero);
             keybd_event(VK_CONTROL, 0, 0, UIntPtr.Zero);
             keybd_event(VK_SHIFT, 0, 0, UIntPtr.Zero);
@@ -68,11 +134,7 @@ namespace novideo_srgb
             keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
             keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
             keybd_event(VK_LWIN, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-
-            Console.WriteLine("Display refresh triggered.");
         }
     }
-
-
 
 }
