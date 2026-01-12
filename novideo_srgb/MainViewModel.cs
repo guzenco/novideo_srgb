@@ -96,7 +96,8 @@ namespace novideo_srgb
                         (double)settings.Attribute("custom_gamma"),
                         (double)settings.Attribute("custom_percentage"),
                         (int)settings.Attribute("target"),
-                        (bool)settings.Attribute("disable_optimization"));
+                        (bool)settings.Attribute("disable_optimization"),
+                        (bool?)settings.Attribute("enable_bps") ?? true);
                 }
                 else
                 {
@@ -138,7 +139,8 @@ namespace novideo_srgb
                             new XAttribute("custom_gamma", x.CustomGamma),
                             new XAttribute("custom_percentage", x.CustomPercentage),
                             new XAttribute("target", x.Target),
-                            new XAttribute("disable_optimization", x.DisableOptimization))));
+                            new XAttribute("disable_optimization", x.DisableOptimization),
+                            new XAttribute("enable_bps", x.EnableBpc))));
                 xElem.Save(_configPath);
             }
             catch (Exception ex)
