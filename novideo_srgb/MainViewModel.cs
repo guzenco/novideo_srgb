@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using Microsoft.Win32;
@@ -107,17 +106,41 @@ namespace novideo_srgb
                 Monitors.Add(monitor);
             }
 
-            if (!DisplayManager.UsedFlag)
+            Reaply();
+        }
+
+        private readonly object _lock = new object();
+
+        public void Reaply()
+        {
+            lock (_lock)
             {
+                if (!DisplayManager.RefreshEndFlag) return;
+
+                DisplayManager.AllowDisplayRefresh(false);
+
                 foreach (var monitor in Monitors)
                 {
                     monitor.DeapplyClamp();
                 }
+
+                DisplayManager.RefreshEndEvent += OnRefreshRepply;
+                DisplayManager.AllowDisplayRefreshOnce();
             }
-            Thread.Sleep(DisplayManager.IsRefreshPending() ? 5000 : 100);
-            foreach (var monitor in Monitors)
-            {
-                monitor.ReapplyClamp();
+        }
+
+        public void OnRefreshRepply(object sender, EventArgs e)
+        {
+            lock (_lock)
+            {     
+                foreach (var monitor in Monitors)
+                {
+                    monitor.ReapplyClamp();
+                }
+                
+                DisplayManager.RefreshEndEvent -= OnRefreshRepply;
+                DisplayManager.AllowDisplayRefreshOnce();
+                DisplayManager.AllowDisplayRefresh(true);
             }
         }
 

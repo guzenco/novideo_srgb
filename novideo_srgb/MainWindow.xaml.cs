@@ -2,7 +2,6 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Windows;
 using System.Windows.Forms;
 using Application = System.Windows.Application;
@@ -79,9 +78,24 @@ namespace novideo_srgb
             if (window.ChangedCalibration)
             {
                 _viewModel.SaveConfig();
+                
+
+                EventHandler reaply = null;
+                reaply = (_, __) =>
+                { 
+                    monitor?.ReapplyClamp();
+
+                    DisplayManager.RefreshEndEvent -= reaply;
+                    DisplayManager.AllowDisplayRefreshOnce();
+                    DisplayManager.AllowDisplayRefresh(true);
+                };
+
+                DisplayManager.AllowDisplayRefresh(false);          
+
                 monitor?.DeapplyClamp();
-                Thread.Sleep(DisplayManager.IsRefreshPending() ? 5000 : 100);
-                monitor?.ReapplyClamp();
+
+                DisplayManager.RefreshEndEvent += reaply;
+                DisplayManager.AllowDisplayRefreshOnce();
             }
 
             if (window.ChangedDither)
@@ -150,15 +164,7 @@ namespace novideo_srgb
 
         private void ReapplyMonitorSettings()
         {
-            foreach (var monitor in _viewModel.Monitors)
-            {
-                monitor.DeapplyClamp();
-            }
-            Thread.Sleep(DisplayManager.IsRefreshPending() ? 5000 : 100);
-            foreach (var monitor in _viewModel.Monitors)
-            {
-                monitor.ReapplyClamp();
-            }
+            _viewModel.Reaply();
         }
     }
 }
