@@ -165,38 +165,43 @@ namespace novideo_srgb
             }
         }
 
-        private static string[] GetPaths(string nvRegDisplayName)
+        private static string[] GetPaths(string[] nvRegDisplayIdentifiers)
         {
             const string basePath = @"SYSTEM\CurrentControlSet\Services\nvlddmkm\State\DisplayDatabase";
             List<string> keyNames = new List<string>();
 
-            try
-            {
-                using (RegistryKey baseKey = Registry.LocalMachine.OpenSubKey(basePath))
+            foreach (string nvRegDisplayIdentifier in nvRegDisplayIdentifiers) {
+                try
                 {
-                    if (baseKey != null)
+                    using (RegistryKey baseKey = Registry.LocalMachine.OpenSubKey(basePath))
                     {
-                        foreach (string subKeyName in baseKey.GetSubKeyNames())
+                        if (baseKey != null)
                         {
-                            if (subKeyName.IndexOf(nvRegDisplayName, StringComparison.OrdinalIgnoreCase) >= 0)
+                            foreach (string subKeyName in baseKey.GetSubKeyNames())
                             {
-                                keyNames.Add($@"{basePath}\{subKeyName}");
+                                if (subKeyName.IndexOf(nvRegDisplayIdentifier, StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    keyNames.Add($@"{basePath}\{subKeyName}");
+                                }
                             }
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Error accessing registry: {ex.Message}\nUse unlock_registry.bat to remove restrictions.");
+                }
+                if(keyNames.Count > 0)
+                {
+                    return keyNames.ToArray();
+                }
             }
-            catch (Exception ex)
-            {
-                throw new Exception($"Error accessing registry: {ex.Message}\nUse unlock_registry.bat to remove restrictions.");
-            }
-
-            return keyNames.ToArray();
+            return new string[] { };
         }
 
-        private static string GetPath(string nvRegDisplayName)
+        private static string GetPath(string[] nvRegDisplayIdentifiers)
         {
-            string[] keyPaths = GetPaths(nvRegDisplayName);
+            string[] keyPaths = GetPaths(nvRegDisplayIdentifiers);
 
             foreach (string path in keyPaths)
             {
@@ -217,11 +222,11 @@ namespace novideo_srgb
         }
 
 
-        public static RegCsc GetRegCsc(string NVRegIdentifier)
+        public static RegCsc GetRegCsc(string[] nvRegDisplayIdentifiers)
         {
             RegCsc result = new RegCsc(2, 0, null, null, null, null);
 
-            string path = GetPath(NVRegIdentifier);
+            string path = GetPath(nvRegDisplayIdentifiers);
             if (path != null)
             {
                 using (RegistryKey key = Registry.LocalMachine.OpenSubKey(path))
@@ -250,14 +255,14 @@ namespace novideo_srgb
             return result;
         }
 
-        public static bool SetRegCsc(string NVRegIdentifier, RegCsc data)
+        public static bool SetRegCsc(string[] nvRegDisplayIdentifiers, RegCsc data)
         {
             data.Config.bytesum = GetByteSum(data.Config);
 
-            RegCsc data_old = GetRegCsc(NVRegIdentifier);
+            RegCsc data_old = GetRegCsc(nvRegDisplayIdentifiers);
             if (Compare(data.Config, data_old.Config) && (!data.hasLut() || Compare(data.Lut, data_old.Lut))) return false;
 
-            string[] keyPaths = GetPaths(NVRegIdentifier);
+            string[] keyPaths = GetPaths(nvRegDisplayIdentifiers);
 
             foreach (string path in keyPaths)
             {
