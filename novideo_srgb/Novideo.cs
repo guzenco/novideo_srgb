@@ -105,12 +105,12 @@ namespace novideo_srgb
             public float[,] matrix2;
         }
 
-        public static ColorSpaceConversion GetColorSpaceConversion(GPUOutput output, string nvRegDisplayName)
+        public static ColorSpaceConversion GetColorSpaceConversion(GPUOutput output, string[] nvRegDisplayIdentifiers)
         {
             var displayId = output.PhysicalGPU.GetDisplayDeviceByOutput(output).DisplayId;
 
             var csc = new Csc { version = 0x1007C };
-            var status = GetColorSpaceConversionU(displayId, nvRegDisplayName, ref csc);
+            var status = GetColorSpaceConversionU(displayId, nvRegDisplayIdentifiers, ref csc);
             if (status != 0)
             {
                 throw new Exception("NvAPI_GPU_GetColorSpaceConversion failed with error code " + status);
@@ -145,7 +145,7 @@ namespace novideo_srgb
             return result;
         }
 
-        public static void SetColorSpaceConversion(GPUOutput output, string nvRegDisplayName, ColorSpaceConversion conversion)
+        public static void SetColorSpaceConversion(GPUOutput output, string[] nvRegDisplayIdentifiers, ColorSpaceConversion conversion)
         {
             var displayId = output.PhysicalGPU.GetDisplayDeviceByOutput(output).DisplayId;
 
@@ -177,19 +177,19 @@ namespace novideo_srgb
                 }
             }
 
-            var status = SetColorSpaceConversionU(displayId, nvRegDisplayName, ref csc);
+            var status = SetColorSpaceConversionU(displayId, nvRegDisplayIdentifiers, ref csc);
             if (status != 0)
             {
                 throw new Exception("NvAPI_GPU_SetColorSpaceConversion failed with error code " + status);
             }
         }
 
-        public static void SetColorSpaceConversion(GPUOutput output, string nvRegDisplayName, Matrix matrix)
+        public static void SetColorSpaceConversion(GPUOutput output, string[] nvRegDisplayIdentifiers, Matrix matrix)
         {
-            SetColorSpaceConversion(output, nvRegDisplayName, MatrixToColorSpaceConversion(matrix));
+            SetColorSpaceConversion(output, nvRegDisplayIdentifiers, MatrixToColorSpaceConversion(matrix));
         }
 
-        public static unsafe void SetColorSpaceConversion(GPUOutput output, string nvRegDisplayName, ICCMatrixProfile profile,
+        public static unsafe void SetColorSpaceConversion(GPUOutput output, string[] nvRegDisplayIdentifiers, ICCMatrixProfile profile,
             Colorimetry.ColorSpace target,
             ToneCurve curve = null,
             bool disableOptimization = false)
@@ -198,7 +198,7 @@ namespace novideo_srgb
 
             if (curve == null)
             {
-                SetColorSpaceConversion(output, nvRegDisplayName, MatrixToColorSpaceConversion(matrix));
+                SetColorSpaceConversion(output, nvRegDisplayIdentifiers, MatrixToColorSpaceConversion(matrix));
                 return;
             }
 
@@ -275,7 +275,7 @@ namespace novideo_srgb
                     }
                 }
 
-                var status = SetColorSpaceConversionU(displayId, nvRegDisplayName, ref csc);
+                var status = SetColorSpaceConversionU(displayId, nvRegDisplayIdentifiers, ref csc);
                 if (status != 0)
                 {
                     throw new Exception("NvAPI_GPU_SetColorSpaceConversion failed with error code " + status);
@@ -283,9 +283,9 @@ namespace novideo_srgb
             }
         }
 
-        public static bool IsColorSpaceConversionActive(GPUOutput output, string nvRegDisplayName)
+        public static bool IsColorSpaceConversionActive(GPUOutput output, string[] nvRegDisplayIdentifiers)
         {
-            var csc = GetColorSpaceConversion(output, nvRegDisplayName);
+            var csc = GetColorSpaceConversion(output, nvRegDisplayIdentifiers);
             switch (csc.monitorColorSpace)
             {
                 // default GPU driver state or explicitly disabled
@@ -298,9 +298,9 @@ namespace novideo_srgb
             }
         }
 
-        public static void DisableColorSpaceConversion(GPUOutput output, string nvRegDisplayName)
+        public static void DisableColorSpaceConversion(GPUOutput output, string[] nvRegDisplayIdentifiers)
         {
-            SetColorSpaceConversion(output, nvRegDisplayName, new ColorSpaceConversion { contentColorSpace = 2 });
+            SetColorSpaceConversion(output, nvRegDisplayIdentifiers, new ColorSpaceConversion { contentColorSpace = 2 });
         }
 
         public static EDID GetEDID(string path, Display display)
@@ -374,24 +374,24 @@ namespace novideo_srgb
                     NvAPI_QueryInterface(_NvAPI_GPU_SetDitherControl));
         }
 
-        private static int SetColorSpaceConversionU(uint displayId, string nvRegDisplayName, ref Csc csc)
+        private static int SetColorSpaceConversionU(uint displayId, string[] nvRegDisplayIdentifiers, ref Csc csc)
         {
             var status = NvAPI_GPU_SetColorSpaceConversion(displayId, ref csc);
             if (status != 0)
             {
                 var regCsc = CscToRegCsc(csc);
-                RegCSC.SetRegCsc(nvRegDisplayName, regCsc);
+                RegCSC.SetRegCsc(nvRegDisplayIdentifiers, regCsc);
                 return 0;
             }
             return status;
         }
 
-        private static int GetColorSpaceConversionU(uint displayId, string nvRegDisplayName, ref Csc csc)
+        private static int GetColorSpaceConversionU(uint displayId, string[] nvRegDisplayIdentifiers, ref Csc csc)
         {
             var status = NvAPI_GPU_GetColorSpaceConversion(displayId, ref csc);
             if (status != 0)
             {
-                var regCsc = RegCSC.GetRegCsc(nvRegDisplayName);
+                var regCsc = RegCSC.GetRegCsc(nvRegDisplayIdentifiers);
                 csc = RegCscToCsc(regCsc);
                 return 0;
             }

@@ -111,21 +111,28 @@ namespace novideo_srgb
 
         private readonly object _lock = new object();
 
-        public void Reaply()
+        public void Reaply(bool force = false)
         {
             lock (_lock)
             {
                 if (!DisplayManager.RefreshEndFlag) return;
 
+
                 DisplayManager.AllowDisplayRefresh(false);
-
-                foreach (var monitor in Monitors)
+                if (force || DisplayManager.FirstRefreshFlag)
                 {
-                    monitor.DeapplyClamp();
-                }
+                    foreach (var monitor in Monitors)
+                    {
+                        monitor.DeapplyClamp();
+                    }
 
-                DisplayManager.RefreshEndEvent += OnRefreshRepply;
-                DisplayManager.AllowDisplayRefreshOnce();
+                    DisplayManager.RefreshEndEvent += OnRefreshRepply;
+                    DisplayManager.AllowDisplayRefreshOnce();
+                }
+                else
+                {
+                    OnRefreshRepply(null, null);
+                }
             }
         }
 

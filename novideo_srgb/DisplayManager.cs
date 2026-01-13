@@ -20,7 +20,7 @@ namespace novideo_srgb
         private static readonly object _lock = new object();
 
         public static bool RefreshEndFlag = true;
-        private static bool FirstRunFlag = true;
+        public static bool FirstRefreshFlag = true;
         private static bool RefreshRequestedFlag = false;
         private static bool AllowDisplayRefreshFlag = true;
 
@@ -32,9 +32,9 @@ namespace novideo_srgb
         {
             lock (_lock)
             {
-                if (FirstRunFlag)
+                if (FirstRefreshFlag)
                 {
-                    FirstRunFlag = false;
+                    FirstRefreshFlag = false;
                     SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
                 }
                 if (AllowDisplayRefreshFlag)
@@ -75,18 +75,19 @@ namespace novideo_srgb
         private static void SetRefreshEndFlag(bool value, int timeout = 10000)
         {
             lock (_lock)
-            {             
+            {
                 if (value)
                 {
                     _refreshEndFlagLiftTimer?.Dispose();
-                    _refreshEndFlagLiftTimer = new Timer(_ => {
+                    _refreshEndFlagLiftTimer = new Timer(_ =>
+                    {
                         lock (_lock)
                         {
                             RefreshEndFlag = true;
                         }
-                        }, null, timeout / 2, Timeout.Infinite);
+                    }, null, timeout / 10, Timeout.Infinite);
 
-                    
+
                     _refreshTimeoutTimer?.Dispose();
                     RefreshEndEvent?.Invoke(null, EventArgs.Empty);
                 }
@@ -101,7 +102,7 @@ namespace novideo_srgb
                         {
                             if (!RefreshEndFlag)
                             {
-                                SetRefreshEndFlag(true, timeout);   
+                                SetRefreshEndFlag(true, timeout);
                             }
                         }
                     }, null, timeout, Timeout.Infinite);

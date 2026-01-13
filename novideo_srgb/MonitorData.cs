@@ -17,7 +17,7 @@ namespace novideo_srgb
         public event PropertyChangedEventHandler PropertyChanged;
 
         private readonly GPUOutput _output;
-        private readonly string _nvRegDisplayName;
+        private readonly string[] _nvRegDisplayIdentifiers;
         private bool _clamped;
         private int _bitDepth;
         private Novideo.DitherControl _dither;
@@ -56,12 +56,26 @@ namespace novideo_srgb
                 .FirstOrDefault(x => x.Type == StringDescriptorType.MonitorName)?.Value ?? "<no name>";
 
             var serialNumber = Edid.Descriptors.OfType<StringDescriptor>().FirstOrDefault(x => x.Type == StringDescriptorType.MonitorSerialNumber)?.Value ?? "";
-            if (serialNumber.Length == 0)
+            if (serialNumber.Length == 0 && Edid.SerialNumber != 0)
             {
                 serialNumber = Edid.SerialNumber.ToString();
             }
-            var display_tag = path.Split('#')[1];
-            _nvRegDisplayName = display_tag + serialNumber;
+
+            var displayTag = path.Split('#')[1];
+            if (serialNumber.Length != 0 && displayTag.Length!= 0)
+            {
+                _nvRegDisplayIdentifiers = new string[] { displayTag + serialNumber, serialNumber, displayTag};
+            } else if (displayTag.Length != 0)
+            {
+                _nvRegDisplayIdentifiers = new string[] { displayTag };
+            } else if(serialNumber.Length != 0)
+            {
+                _nvRegDisplayIdentifiers = new string[] { serialNumber };
+            }
+            else
+            {
+                _nvRegDisplayIdentifiers = new string[] {};
+            }
 
             Path = path;
             ClampSdr = clampSdr;
@@ -81,11 +95,10 @@ namespace novideo_srgb
             
             try
             {
-                _clamped = !HdrActive && Novideo.IsColorSpaceConversionActive(_output, _nvRegDisplayName);
+                _clamped = Novideo.IsColorSpaceConversionActive(_output, _nvRegDisplayIdentifiers);
             }
             catch (Exception e)
             {
-                HandleClampException(e);
             }
 
             ProfilePath = "";
@@ -119,13 +132,13 @@ namespace novideo_srgb
         {
             if (_clamped && !doClamp)
             {
-                Novideo.DisableColorSpaceConversion(_output, _nvRegDisplayName);
+                Novideo.DisableColorSpaceConversion(_output, _nvRegDisplayIdentifiers);
             }
 
             if (!doClamp) return;
 
             if (UseEdid)
-                Novideo.SetColorSpaceConversion(_output, _nvRegDisplayName, Colorimetry.RGBToRGB(TargetColorSpace, EdidColorSpace));
+                Novideo.SetColorSpaceConversion(_output, _nvRegDisplayIdentifiers, Colorimetry.RGBToRGB(TargetColorSpace, EdidColorSpace));
             else if (UseIcc)
             {
                 var profile = ICCMatrixProfile.FromFile(ProfilePath);
@@ -161,11 +174,11 @@ namespace novideo_srgb
                             throw new NotSupportedException("Unsupported gamma type " + SelectedGamma);
                     }
 
-                    Novideo.SetColorSpaceConversion(_output, _nvRegDisplayName, profile, TargetColorSpace, gamma, DisableOptimization);
+                    Novideo.SetColorSpaceConversion(_output, _nvRegDisplayIdentifiers, profile, TargetColorSpace, gamma, DisableOptimization);
                 }
                 else
                 {
-                    Novideo.SetColorSpaceConversion(_output, _nvRegDisplayName, profile, TargetColorSpace);
+                    Novideo.SetColorSpaceConversion(_output, _nvRegDisplayIdentifiers, profile, TargetColorSpace);
                 }
             }
         }

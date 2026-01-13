@@ -164,7 +164,7 @@ namespace novideo_srgb
 
         private void ReapplyMonitorSettings()
         {
-            _viewModel.Reaply();
+            _viewModel.Reaply(true);
         }
     }
 }
