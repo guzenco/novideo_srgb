@@ -9,9 +9,14 @@ namespace novideo_srgb
         private double _b;
         private readonly double _c;
 
-        public unsafe GammaToneCurve(double gamma, double black = 0, double outputOffset = 1, bool relative = false)
+        private readonly double _trc_black;
+        private readonly double _tag_black;
+
+        public unsafe GammaToneCurve(double gamma, double trc_black = 0, double tag_black = 0, double outputOffset = 1, bool relative = false)
         {
-            if (black == 0)
+            _trc_black = trc_black;
+            _tag_black = tag_black;
+            if (tag_black == 0)
             {
                 _gamma = gamma;
                 return;
@@ -21,15 +26,15 @@ namespace novideo_srgb
             {
                 _gamma = !relative
                     ? gamma
-                    : Math.Log((black - 1) * Math.Pow(2, gamma) / (black * Math.Pow(2, gamma) - 1), 2);
-                _a = 1 - black;
-                _c = black;
+                    : Math.Log((tag_black - 1) * Math.Pow(2, gamma) / (tag_black * Math.Pow(2, gamma) - 1), 2);
+                _a = 1 - tag_black;
+                _c = tag_black;
             }
             else
             {
-                var outBlack = outputOffset * black;
+                var outBlack = outputOffset * tag_black;
                 var btWhite = 1 - outBlack;
-                var btBlack = black - outBlack;
+                var btBlack = tag_black - outBlack;
                 _c = outBlack;
 
                 if (!relative)
@@ -84,7 +89,9 @@ namespace novideo_srgb
         public double SampleAt(double x)
         {
             if (x >= 1) return 1;
-            return _a * Math.Pow(Math.Max(x + _b, 0), _gamma) + _c;
+            var compensation = _tag_black - _trc_black;
+            var res = _a * Math.Pow(Math.Max(x + _b, 0), _gamma) + _c;
+            return (res - compensation) / (1 - compensation);
         }
 
         public double SampleInverseAt(double x)

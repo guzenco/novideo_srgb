@@ -104,11 +104,14 @@ namespace novideo_srgb
             ProfilePath = "";
             CustomGamma = 2.2;
             CustomPercentage = 100;
+
+            DisableOptimization = true;
+            EnableBpc = true;
         }
 
         public MonitorData(MainViewModel viewModel, int number, Display display, string path, bool hdrActive, bool clampSdr, bool useIcc, string profilePath,
             bool calibrateGamma,
-            int selectedGamma, double customGamma, double customPercentage, int target, bool disableOptimization) :
+            int selectedGamma, double customGamma, double customPercentage, int target, bool disableOptimization, bool enableBpc) :
             this(viewModel, number, display, path, hdrActive, clampSdr)
         {
             UseIcc = useIcc;
@@ -119,6 +122,7 @@ namespace novideo_srgb
             CustomPercentage = customPercentage;
             Target = target;
             DisableOptimization = disableOptimization;
+            EnableBpc = enableBpc;
         }
 
         public int Number { get; }
@@ -144,31 +148,31 @@ namespace novideo_srgb
                 var profile = ICCMatrixProfile.FromFile(ProfilePath);
                 if (CalibrateGamma)
                 {
-                    var trcBlack = Matrix.FromValues(new[,]
+                    if (profile.bpcAvailable)
                     {
-                        { profile.trcs[0].SampleAt(0) },
-                        { profile.trcs[1].SampleAt(0) },
-                        { profile.trcs[2].SampleAt(0) }
-                    });
-                    var black = (profile.matrix * trcBlack)[1];
+                        profile.SetBpc(EnableBpc);
+                    }
+
+                    var trcBlack = profile.trcBlack;
+                    var tagBlack = profile.tagBlack;
 
                     ToneCurve gamma;
                     switch (SelectedGamma)
                     {
                         case 0:
-                            gamma = new SrgbEOTF(black);
+                            gamma = new SrgbEOTF(trcBlack);
                             break;
                         case 1:
-                            gamma = new GammaToneCurve(2.4, black, 0);
+                            gamma = new GammaToneCurve(2.4, trcBlack, tagBlack, 0);
                             break;
                         case 2:
-                            gamma = new GammaToneCurve(CustomGamma, black, CustomPercentage / 100);
+                            gamma = new GammaToneCurve(CustomGamma, trcBlack, tagBlack, CustomPercentage / 100);
                             break;
                         case 3:
-                            gamma = new GammaToneCurve(CustomGamma, black, CustomPercentage / 100, true);
+                            gamma = new GammaToneCurve(CustomGamma, trcBlack, tagBlack, CustomPercentage / 100, true);
                             break;
                         case 4:
-                            gamma = new LstarEOTF(black);
+                            gamma = new LstarEOTF(trcBlack);
                             break;
                         default:
                             throw new NotSupportedException("Unsupported gamma type " + SelectedGamma);
@@ -264,6 +268,8 @@ namespace novideo_srgb
         public double CustomPercentage { set; get; }
 
         public bool DisableOptimization { set; get; }
+
+        public bool EnableBpc { set; get; }
 
         public int Target { set; get; }
 

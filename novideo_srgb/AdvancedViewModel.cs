@@ -21,6 +21,7 @@ namespace novideo_srgb
         private double _customGamma;
         private double _customPercentage;
         private bool _disableOptimization;
+        private bool _enableBpc;
 
         private int _ditherState;
         private int _ditherMode;
@@ -43,6 +44,7 @@ namespace novideo_srgb
             _customGamma = monitor.CustomGamma;
             _customPercentage = monitor.CustomPercentage;
             _disableOptimization = monitor.DisableOptimization;
+            _enableBpc = monitor.EnableBpc;
 
             _ditherBits = dither.bits;
             _ditherMode = dither.mode;
@@ -67,6 +69,8 @@ namespace novideo_srgb
             _monitor.CustomPercentage = _customPercentage;
             ChangedCalibration |= _monitor.DisableOptimization != _disableOptimization;
             _monitor.DisableOptimization = _disableOptimization;
+            ChangedCalibration |= _monitor.EnableBpc != _enableBpc;
+            _monitor.EnableBpc = EnableBpc;
         }
 
         public ChromaticityCoordinates Coords => _monitor.Edid.DisplayParameters.ChromaticityCoordinates;
@@ -185,6 +189,17 @@ namespace novideo_srgb
                 OnPropertyChanged();
             }
             get => _disableOptimization;
+        }
+
+        public bool EnableBpc
+        {
+            set
+            {
+                if (value == _enableBpc) return;
+                _enableBpc = value;
+                OnPropertyChanged();
+            }
+            get => _enableBpc;
         }
 
         public bool ChangedCalibration { get; set; }

@@ -110,6 +110,7 @@
     <Compile Include="RegCSC.cs" />
     <Compile Include="SrgbEOTF.cs" />
     <Compile Include="ToneCurve.cs" />
+    <Compile Include="ToneCurveBpc.cs" />
     <Page Include="AboutWindow.xaml" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

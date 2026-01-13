@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 
 namespace novideo_srgb
 {
@@ -7,7 +8,68 @@ namespace novideo_srgb
     {
         public Matrix matrix = Matrix.Zero3x3();
         public ToneCurve[] trcs = new ToneCurve[3];
+        private ToneCurve[] _trcs;
         public ToneCurve[] vcgt;
+        public Matrix blackPoint = null;
+
+        public double trcBlack {
+            get
+            {
+                if (bpc) return 0;
+                var trcBlacks = Matrix.FromValues(new[,]
+                    {
+                        { trcs[0].SampleAt(0) },
+                        { trcs[1].SampleAt(0) },
+                        { trcs[2].SampleAt(0) }
+                    });
+                return (matrix * trcBlacks)[1];
+            }
+        }
+
+        public double tagBlack
+        {
+            get
+            {
+                return blackPoint != null ? blackPoint[1] : trcBlack;
+            }
+        }
+
+        public bool bpcAvailable
+        {
+            get
+            {
+                return _trcs[0].SampleAt(0) != _trcs[1].SampleAt(0) || _trcs[1].SampleAt(0) != _trcs[2].SampleAt(0) || _trcs[2].SampleAt(0) != 0;
+            }
+        }
+
+        private readonly object _lock = new object();
+        public bool bpc = false;
+        public void SetBpc(bool value)
+        {
+            lock (_lock)
+            {
+                if (bpcAvailable && bpc != value)
+                {
+                    if (value)
+                    {
+                        var threshold = 0.01;
+                        var maxTrcBlac = Math.Max(trcs[0].SampleAt(0), Math.Max(trcs[1].SampleAt(0), trcs[2].SampleAt(0)));
+                        while (maxTrcBlac * 2 > threshold)
+                        {
+                            threshold *= 2;
+                        }
+                        threshold = Math.Min(0.1, threshold);
+                        trcs = trcs.Select(tc => new ToneCurveBpc(tc, trcBlack, threshold)).ToArray();
+                        bpc = value;
+                    }
+                    else
+                    {
+                        trcs = _trcs;
+                        bpc = value;
+                    }
+                }
+            }
+        }
 
         private ICCMatrixProfile()
         {
@@ -268,6 +330,17 @@ namespace novideo_srgb
                             result.vcgt[j] = new LutToneCurve(values);
                         }
                     }
+                    else if (tagSig == "bkpt")
+                    {
+                        reader.ReadUInt32();
+                        reader.ReadUInt32();
+
+                        result.blackPoint = Matrix.Zero3x1();
+                        for (int j = 0; j < 3; j++)
+                        {
+                            result.blackPoint[j] = reader.ReadS15Fixed16();
+                        }
+                    }
                 }
 
                 if (!useCLUT)
@@ -280,6 +353,7 @@ namespace novideo_srgb
                     result.matrix = Colorimetry.XYZScaleToD50(result.matrix);
                 }
             }
+            result._trcs = result.trcs;
 
             return result;
         }
