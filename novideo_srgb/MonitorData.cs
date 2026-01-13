@@ -81,11 +81,10 @@ namespace novideo_srgb
             
             try
             {
-                _clamped = !HdrActive && Novideo.IsColorSpaceConversionActive(_output, _nvRegDisplayName);
+                _clamped = Novideo.IsColorSpaceConversionActive(_output, _nvRegDisplayName);
             }
             catch (Exception e)
             {
-                HandleClampException(e);
             }
 
             ProfilePath = "";
