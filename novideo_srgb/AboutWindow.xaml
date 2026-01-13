@@ -12,7 +12,7 @@
     <StackPanel Margin="6">
         <TextBlock FontSize="15" HorizontalAlignment="Center" TextAlignment="Center">
             novideo_srgb by ledoge<LineBreak />
-            fork v5.0 by guzenco
+            fork v5.1 by guzenco
         </TextBlock>
         <TextBlock HorizontalAlignment="Center" TextAlignment="Center">
             Licensed under GPLv3 <LineBreak /> <LineBreak />
