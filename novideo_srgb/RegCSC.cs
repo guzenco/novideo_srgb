@@ -191,7 +191,13 @@ namespace novideo_srgb
                 throw new Exception($"Error accessing registry: {ex.Message}\nUse unlock_registry.bat to remove restrictions.");
             }
 
-            return keyNames.ToArray();
+            string[] result = keyNames.ToArray();
+            if (result.Length == 0)
+            {
+                throw new Exception($"Can't find registry for {nvRegDisplayName}");
+            }
+
+            return result;
         }
 
         private static string GetPath(string nvRegDisplayName)

@@ -50,6 +50,8 @@ namespace novideo_srgb
             {
             }
 
+            try
+            {
             Edid = Novideo.GetEDID(path, display);
 
             Name = Edid.Descriptors.OfType<StringDescriptor>()
@@ -91,6 +93,10 @@ namespace novideo_srgb
             ProfilePath = "";
             CustomGamma = 2.2;
             CustomPercentage = 100;
+            }catch(Exception e)
+            {
+                MessageBox.Show(e.Message);
+            }
         }
 
         public MonitorData(MainViewModel viewModel, int number, Display display, string path, bool hdrActive, bool clampSdr, bool useIcc, string profilePath,
