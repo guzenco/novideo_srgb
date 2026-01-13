@@ -31,12 +31,17 @@ jobs:
       - name: Create ZIP from artifact
         run: powershell Compress-Archive -Path "artifact\*" -DestinationPath "release.zip"
 
+      - name: Prepare release notes 
+        run: | 
+          $notes = "${{ github.event.inputs.notes }}" -replace "\\n","`n" 
+          Set-Content -Path RELEASE_NOTES.md -Value $notes
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.version }}
           name: ${{ github.event.inputs.version }}
-          body: ${{ github.event.inputs.notes }}
+          body_path: RELEASE_NOTES.md
           prerelease: ${{ github.event.inputs.prerelease }}
           files: release.zip
         env:
