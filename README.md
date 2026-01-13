@@ -1,8 +1,17 @@
 ## [Download latest release](https://github.com/guzenco/novideo_srgb/releases/latest/download/release.zip)
 # About fork
-This fork uses the registry to apply color space conversions in cases where the NVIDIA API doesn't work. It serves as a workaround for crashes with R590 drivers.
+This fork:
+* Uses the registry to apply color space conversions in cases where the NVIDIA API doesn't work. It serves as a workaround for crashes with R590 drivers.
 
-You must run `unlock_registry.bat` for registry-based CSC to function.
+  You must run `unlock_registry.bat` for registry-based CSC to function.
+
+* Extends black point compensation (BPC) support:
+ 
+	* Improved  BPC profiles support.
+  Thay can now correctly use black-point-related EOTFs (such as bt.1886) in most cases (unfortunately, DisplayCal doesn't always include the correct "bkpt" tag for BPC profiles).
+
+	* Added an option to enable BPC for normal profiles.
+  Previously, using a BPC profile produced lower ΔE values for dark colors than normal profiles (detected when generating measured reports with ISO 12646:2008 testchart and 2.4 gamma). Now, the same result is available for normal profiles when the BPC option is enabled.
 
 # About
 This tool uses an undocumented NVIDIA API, supported on Fermi and later, to convert colors before sending them to a wide gamut monitor to effectively clamp it to sRGB (alternatively: Display P3, Adobe RGB or BT.2020), based on the chromaticities provided in its EDID. AMD supports this as a hidden setting in their drivers, but NVIDIA doesn't because ???.
