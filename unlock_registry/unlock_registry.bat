@@ -17,7 +17,7 @@ if %errorlevel% neq 0 (
 )
 
 :: Enumerate all subkeys under DisplayDatabase and write permissions
-for /f "skip=2 tokens=*" %%K in ('reg query "%BASE%" ^| findstr /r "."') do (
+for /f "skip=1 tokens=*" %%K in ('reg query "%BASE%" ^| findstr "%BASE%"') do (
 	echo %%K
     echo %%K [7] >> "%outfile%"
 )
