@@ -21,21 +21,18 @@
             var value = curve.SampleAt(x);
             if(value < _threshold)
             {
-                var compensation = _curve_black - _trc_black;
-                value = (value - compensation) / (_threshold - compensation) * _threshold;
+                value = (value - _curve_black) / (_threshold - _curve_black) * (_threshold - _trc_black) + _trc_black;
             }
             return (value - _trc_black) / (1.0 - _trc_black);
         }
 
         public double SampleInverseAt(double x)
         {
-            if (x <= _trc_black) return 0;
+            x = x / (1.0 + _trc_black) + _trc_black;
             if (x < _threshold)
             {
-                var compensation = _curve_black - _trc_black;
-                x = (x + compensation) / (_threshold + compensation) * _threshold;
+                x = (x - _trc_black) / (_threshold - _trc_black) * (_threshold - _curve_black) + _curve_black;
             }
-            x = (x + _trc_black) / (1.0 + _trc_black);
             return curve.SampleInverseAt(x);
         }
     }

@@ -52,13 +52,8 @@ namespace novideo_srgb
                 {
                     if (value)
                     {
-                        var threshold = 0.01;
                         var maxTrcBlac = Math.Max(trcs[0].SampleAt(0), Math.Max(trcs[1].SampleAt(0), trcs[2].SampleAt(0)));
-                        while (maxTrcBlac * 2 > threshold)
-                        {
-                            threshold *= 2;
-                        }
-                        threshold = Math.Min(0.1, threshold);
+                        var threshold = Math.Min(0.1, maxTrcBlac * 1.5);
                         trcs = trcs.Select(tc => new ToneCurveBpc(tc, trcBlack, threshold)).ToArray();
                         bpc = value;
                     }
