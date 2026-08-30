@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -19,7 +20,7 @@ namespace msovideo_srgb
         private ushort version = 0x0220;
         private uint manufacturerID = 0;
         private uint deviceModel = 0;
-        private const string creator = "msov";
+        private const uint creator = 'm' << 24 | 's' << 16 | 'o' << 8 | 'v';
 
         public void AddTag(string signature, byte[] data)
         {
@@ -69,7 +70,7 @@ namespace msovideo_srgb
             WriteS15Fixed16BE(header, 72, 1.0);
             WriteS15Fixed16BE(header, 76, 0.8249);
 
-            WriteAscii(header, 80, creator);
+            WriteUInt32BE(header, 80, creator);
 
             int tagCount = tags.Count;
             int tagTableSize = 4 + tagCount * 12;
@@ -348,74 +349,47 @@ namespace msovideo_srgb
             return buf;
         }
 
-        private static readonly string profiles_path = @"C:\Windows\System32\spool\drivers\color\";
+        private static readonly string _profilesPath = Path.Combine(Path.GetTempPath(), Process.GetCurrentProcess().ProcessName);
+        public static string ProfilesPath {
+            get
+            {
+                Directory.CreateDirectory(_profilesPath);
+                return _profilesPath;
+            }      
+        }
+
         public void SaveAs(string profileName)
         {
             byte[] profileData = Generate();
 
-            string path = Path.Combine(profiles_path, profileName);
+            var header = DisplayColorProfileManager.GetProfileHeader(profileName);
 
-            if (File.Exists(path))
+            if (header?.dwProfileID is byte[] profileId)
             {
-                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                for (int i = 0; i < 4; i++)
                 {
-                    byte[] existingData = new byte[fs.Length];
-
-                    if (existingData.Length == profileData.Length) {
-                        fs.Read(existingData, 0, existingData.Length);
-
-                        if (existingData.SequenceEqual(profileData))
-                        {
-                            return;
-                        }
-                    }
+                    Array.Reverse(profileId, i * 4, 4);
                 }
+
+                if (profileId.SequenceEqual(profileData.Skip(84).Take(16))) return;
             }
 
-            using (FileStream fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+            string profilePath = Path.Combine(ProfilesPath, profileName);
+
+            using (FileStream fs = new FileStream(profilePath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
             {
                 fs.Write(profileData, 0, profileData.Length);
             }
+            
+            DisplayColorProfileManager.UninstallProfile(profileName, true);
+            DisplayColorProfileManager.InstallProfile(profilePath);
         }
 
         public static bool IsGeneratedByThis(string profileName)
         {
-            string path = Path.Combine(profiles_path, profileName);
+            var header = DisplayColorProfileManager.GetProfileHeader(profileName);
 
-            if (File.Exists(path))
-            {
-                using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                {
-                    byte[] buffer = new byte[4];
-                    
-                    fs.Seek(80, SeekOrigin.Begin);  
-                    int size = fs.Read(buffer, 0, 4);
-
-                    if (size != 4) return false;
-
-                    string profileCreator = Encoding.ASCII.GetString(buffer);
-
-                    return profileCreator.Equals(creator);
-                } 
-            }
-
-            return false;
-        }
-
-        public static List<string> GetGeneratedProfiles()
-        {
-            string[] profiles = Directory.GetFiles(profiles_path, "*.icm");
-
-            List<string> generatedProfiles = new List<string>();
-
-            foreach (string profile in profiles)
-            {
-                string profileName = Path.GetFileName(profile);
-                if (!IsGeneratedByThis(profileName)) continue;
-                generatedProfiles.Add(profileName);
-            }
-
-            return generatedProfiles;
+            return header?.phCreator == creator;
         }
     }
 }

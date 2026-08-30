@@ -1,13 +1,18 @@
 ﻿using System;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace msovideo_srgb
 {
     public static class DisplayColorProfileManager
     {
         internal const uint CLASS_MONITOR = 0x6D6E7472;
+        private const uint PROFILE_FILENAME = 1;
+        private const uint PROFILE_READ = 1;
+        private const uint FILE_SHARE_READ = 1;
+        private const uint FILE_SHARE_WRITE = 2;
+        private const uint OPEN_EXISTING = 3;
 
         public enum WcsProfileManagementScope : uint
         {
@@ -43,7 +48,7 @@ namespace msovideo_srgb
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        struct WCS_DEVICE_MHC2_CAPABILITIES
+        internal struct WCS_DEVICE_MHC2_CAPABILITIES
         {
             public uint Size;
             [MarshalAs(UnmanagedType.Bool)]
@@ -51,6 +56,72 @@ namespace msovideo_srgb
             public uint RegammaLutEntryCount;
             public uint CscXyzMatrixRows;
             public uint CscXyzMatrixColumns; 
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct ENUMTYPEW
+        {
+            public uint dwSize;
+            public uint dwVersion;
+            public uint dwFields;
+            [MarshalAs(UnmanagedType.LPWStr)]
+            public string pDeviceName;
+            public uint dwMediaType;
+            public uint dwDitheringMode;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+            public uint[] dwResolution;
+            public uint dwCMMType;
+            public uint dwClass;
+            public uint dwDataColorSpace;
+            public uint dwConnectionSpace;
+            public uint dwSignature;
+            public uint dwPlatform;
+            public uint dwProfileFlags;
+            public uint dwManufacturer;
+            public uint dwModel;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 2)]
+            public uint[] dwAttributes;
+            public uint dwRenderingIntent;
+            public uint dwCreator;
+            public uint dwDeviceClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct PROFILE
+        {
+            public uint dwType;
+            public IntPtr pProfileData;
+            public uint cbDataSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct PROFILEHEADER
+        {
+            public uint phSize;
+            public uint phCMMType;
+            public uint phVersion;
+            public uint phDeviceClass;
+            public uint phColorSpace;
+            public uint phPCS;
+            public uint phDateTime1;
+            public uint phDateTime2;
+            public uint phDateTime3;
+            public uint phSignature;
+            public uint phPlatform;
+            public uint phFlags;
+            public uint phManufacturer;
+            public uint phModel;
+            public uint phAttributes1;
+            public uint phAttributes2;
+            public uint phRenderingIntent;
+            public uint phIlluminant1;
+            public uint phIlluminant2;
+            public uint phIlluminant3;
+            public uint phCreator;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+            public byte[] dwProfileID;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 28)]
+            public byte[] phReserved;
         }
 
         [DllImport("kernel32.dll", SetLastError = true)]
@@ -109,7 +180,47 @@ namespace msovideo_srgb
         private static extern bool WcsSetUsePerUserProfiles(
             string pDeviceName,
             uint dwDeviceClass,
-            [MarshalAs(UnmanagedType.Bool)] bool usePerUserProfiles);
+            [MarshalAs(UnmanagedType.Bool)] bool usePerUserProfiles
+        );
+
+        [DllImport("mscms.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool InstallColorProfileW(
+            string pMachineName,
+            string pProfileNam
+        );
+
+        [DllImport("mscms.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool UninstallColorProfileW(
+            string pMachineName,
+            string pProfileName,
+            [MarshalAs(UnmanagedType.Bool)]  bool bDelete
+        );
+
+        [DllImport("mscms.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool EnumColorProfilesW(
+            string pMachineName,
+            ref ENUMTYPEW pEnumRecord,
+            byte[] pEnumerationBuffer,
+            ref uint pdwSizeOfEnumerationBuffer,
+            out uint pnProfiles
+        );
+
+        [DllImport("mscms.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr OpenColorProfileW(
+            ref PROFILE pProfile,
+            uint dwDesiredAccess,
+            uint dwShareMode,
+            uint dwCreationMode
+        );
+
+        [DllImport("mscms.dll", SetLastError = true)]
+        private static extern bool GetColorProfileHeader(
+            IntPtr hProfile,
+            out PROFILEHEADER pHeader
+        );
+
+        [DllImport("mscms.dll", SetLastError = true)]
+        private static extern bool CloseColorProfile(IntPtr hProfile);
 
         [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
         private delegate int ColorProfileGetDeviceCapabilitiesDelegate(
@@ -232,6 +343,73 @@ namespace msovideo_srgb
                 CLASS_MONITOR,
                 usePerUserProfiles == WcsProfileManagementScope.CurrentUser
             );
+        }
+
+        public static void InstallProfile(string profileName)
+        {
+            bool success = InstallColorProfileW(null, profileName);
+            if (!success)
+            {
+                int error = Marshal.GetLastWin32Error();
+                throw new ColorProfileOperationException(nameof(InstallProfile), profileName, error);
+            }
+        }
+
+        public static void UninstallProfile(string profileName, bool delete)
+        {
+            bool success = UninstallColorProfileW(null, profileName, delete);
+            if (!success)
+            {
+                int error = Marshal.GetLastWin32Error();
+                if (error == 2) return;
+                throw new ColorProfileOperationException(nameof(UninstallProfile), profileName, error);
+            }
+        }
+
+        public static string[] GetAllProfiles()
+        {           
+            ENUMTYPEW enumType = new ENUMTYPEW()
+            {
+                dwSize = (uint)Marshal.SizeOf(typeof(ENUMTYPEW)),
+                dwVersion = 0x300,
+                dwFields = 0,
+                pDeviceName = null,
+                dwResolution = new uint[2],
+                dwAttributes = new uint[2],
+                dwDeviceClass = 0,
+            };
+
+            uint bufferSize = 0;
+            EnumColorProfilesW(null, ref enumType, null, ref bufferSize, out _);
+
+            byte[] buffer = new byte[bufferSize];
+            bool success = EnumColorProfilesW(null, ref enumType, buffer, ref bufferSize, out _);
+            if (!success) return null;
+
+            string profiles = Encoding.Unicode.GetString(buffer);
+
+            return profiles.Split('\0');
+        }
+
+        public static PROFILEHEADER? GetProfileHeader(string profileName)
+        {
+            PROFILE prof = new PROFILE
+            {
+                dwType = PROFILE_FILENAME,
+                pProfileData = Marshal.StringToHGlobalUni(profileName),
+                cbDataSize = (uint)((profileName.Length + 1) * 2)
+            };
+
+            IntPtr hProfile = OpenColorProfileW(ref prof, PROFILE_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, OPEN_EXISTING);
+            Marshal.FreeHGlobal(prof.pProfileData);
+            if (hProfile == IntPtr.Zero) return null;
+
+            PROFILEHEADER header;
+            bool success = GetColorProfileHeader(hProfile, out header);
+            CloseColorProfile(hProfile);
+            if (!success) return null;
+
+            return header;
         }
 
         public static bool? IsSupportMHC2(Display display)

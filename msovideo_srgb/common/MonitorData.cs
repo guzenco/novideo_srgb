@@ -113,7 +113,8 @@ namespace msovideo_srgb
 
         private void RemoveWrongProfileAssociations()
         {
-            var profiles = ICCProfileGenerator.GetGeneratedProfiles();
+            var profiles = DisplayColorProfileManager.GetAllProfiles()?.ToList();
+            if (profiles == null) return;
 
             string profileNameSDR = DisplayColorProfileManager.GetProfile(Display, false);
             if (profiles.Contains(profileNameSDR))
@@ -138,17 +139,18 @@ namespace msovideo_srgb
             foreach (string profileName in profiles)
             {
                 if (!Regex.IsMatch(profileName, MHCProfileNamePattern)) continue;
+                if (!ICCProfileGenerator.IsGeneratedByThis(profileName)) continue;
 
                 DisplayColorProfileManager.RemoveAssociation(Display, profileName, false);
                 DisplayColorProfileManager.RemoveAssociation(Display, profileName, true);
             }
 
-            if (Regex.IsMatch(profileNameSDR, MHCProfileNamePattern) && profileNameSDR != MHCProfileNameSDR)
+            if (profileNameSDR != MHCProfileNameSDR && Regex.IsMatch(profileNameSDR, MHCProfileNamePattern) && ICCProfileGenerator.IsGeneratedByThis(profileNameSDR))
             {
                 UnapplyProfile(profileNameSDR, false);
             }
 
-            if (Regex.IsMatch(profileNameHDR, MHCProfileNamePattern) && profileNameHDR != MHCProfileNameHDR)
+            if (profileNameHDR != MHCProfileNameHDR && Regex.IsMatch(profileNameHDR, MHCProfileNamePattern) && ICCProfileGenerator.IsGeneratedByThis(profileNameHDR))
             {
                 UnapplyProfile(profileNameHDR, true);
             }
