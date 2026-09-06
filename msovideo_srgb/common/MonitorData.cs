@@ -194,6 +194,30 @@ namespace msovideo_srgb
             if (CanClampSDR)
             {
                 Action createProfile = null;
+
+                double? PeakLuminance = null;
+                double? MaxFullFrameLuminance = null;
+                double? MinLuminance = null;
+
+                if (ExcludeHdrMetadata)
+                {
+                    if (AcmActive)
+                    {
+                        var colorCapabilities = DisplayColorCapabilities.GetColorCapabilities(Display);
+                        if (colorCapabilities != null)
+                        {
+                            PeakLuminance = colorCapabilities?.PeakLuminance;
+                            MaxFullFrameLuminance = colorCapabilities?.MaxFullFrameLuminance;
+                            MinLuminance = colorCapabilities?.MinLuminance;
+                        }
+                    }
+                    else
+                    {
+                        PeakLuminance = -1;
+                        MinLuminance = -1;
+                    }
+                }
+
                 if (UseEdid)
                 {
                     createProfile = () =>
@@ -201,7 +225,10 @@ namespace msovideo_srgb
                         ColorProfileFactory.CreateProfile(MHCProfileNameSDR, CurveResolution, Edid, TargetColorSpace, TargetWhitePoint,
                                 reportWhiteD65: ReportWhiteD65 || AcmActive,
                                 reportColorSpaceSRGB: ReportColorSpaceSRGB && !AcmActive,
-                                reportGammaSRGB: ReportGammaSRGB && !AcmActive);
+                                reportGammaSRGB: ReportGammaSRGB && !AcmActive,
+                                peakLuminanceOverride: PeakLuminance,
+                                maxFullFrameLuminanceOverride: MaxFullFrameLuminance,
+                                minLuminanceOverride: MinLuminance);
                     };
                 }
                 else if (UseIcc)
@@ -249,28 +276,6 @@ namespace msovideo_srgb
                         }
                     }
 
-                    double? PeakLuminance = null;
-                    double? MaxFullFrameLuminance = null;
-                    double? MinLuminance = null;
-
-                    if (ExcludeHdrMetadata)
-                    {
-                        if (AcmActive)
-                        {
-                            var colorCapabilities = DisplayColorCapabilities.GetColorCapabilities(Display);
-                            if (colorCapabilities != null)
-                            {
-                                PeakLuminance = colorCapabilities?.PeakLuminance;
-                                MaxFullFrameLuminance = colorCapabilities?.MaxFullFrameLuminance;
-                                MinLuminance = colorCapabilities?.MinLuminance;
-                            }
-                        }
-                        else
-                        {
-                            PeakLuminance = -1;
-                            MinLuminance = -1;
-                        }
-                    }
                     createProfile =() =>
                     {
                         ColorProfileFactory.CreateProfile(MHCProfileNameSDR, CurveResolution, Edid, profile, TargetColorSpace, TargetWhitePoint, luminance,

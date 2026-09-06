@@ -156,7 +156,10 @@ namespace msovideo_srgb
         public static void CreateProfile(string profileName, uint resolution, EDID edid, Colorimetry.ColorSpace targetColorSpace, Colorimetry.Point targetWhitePoint, 
             bool reportWhiteD65 = false, 
             bool reportColorSpaceSRGB = false, 
-            bool reportGammaSRGB = false)
+            bool reportGammaSRGB = false,
+            double? peakLuminanceOverride = null,
+            double? maxFullFrameLuminanceOverride = null,
+            double? minLuminanceOverride = null)
         {
             var profileGenerator = new ICCProfileGenerator();
 
@@ -230,9 +233,13 @@ namespace msovideo_srgb
 
             Matrix matrix = matrixCsc;
 
-            profileGenerator.AddTag("lumi", ICCProfileGenerator.MakeLuminanceTag(80));
+            double peakLuminance = peakLuminanceOverride ?? 80;
+            double maxFullFrameLuminance = maxFullFrameLuminanceOverride ?? 80;
+            double minLuminance = minLuminanceOverride ?? 0;
 
-            profileGenerator.AddTag("MHC2", ICCProfileGenerator.MakeMHC2(-1, -1, matrix, luts));
+            profileGenerator.AddTag("lumi", ICCProfileGenerator.MakeLuminanceTag(maxFullFrameLuminance));
+
+            profileGenerator.AddTag("MHC2", ICCProfileGenerator.MakeMHC2(minLuminance, peakLuminance, matrix, luts));
 
             profileGenerator.SaveAs(profileName);
         }
